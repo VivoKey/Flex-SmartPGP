@@ -11,7 +11,7 @@ index a678c1d..04395be 100644
  
      protected static final byte[] KEY_DERIVATION_FUNCTION_DEFAULT = {
          (byte)0x81, (byte)0x01, (byte)0x00
-@@ -150,7 +150,7 @@ public final class Constants {
+@@ -152,7 +152,7 @@ public final class Constants {
          (byte)0x73, /* card capabilities */
          (byte)0xC0, /* 1st byte: "methods supported" see ISO 7816-4 */
          (byte)0x01, /* 2nd byte: "data coding byte" idem */
