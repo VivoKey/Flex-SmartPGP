@@ -18,12 +18,7 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-package fr.anssi.smartpgp;
-
-import javacard.framework.*;
-import javacard.security.*;
-import javacardx.apdu.*;
-import javacardx.crypto.*;
+package com.vivokey.smartpgp;
 
 public final class ECCurves {
 

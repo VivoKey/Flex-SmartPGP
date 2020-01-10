@@ -18,12 +18,9 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-package fr.anssi.smartpgp;
+package com.vivokey.smartpgp;
 
 import javacard.framework.*;
-import javacard.security.*;
-import javacardx.apdu.*;
-import javacardx.crypto.*;
 
 public final class Common {
 
@@ -155,4 +152,31 @@ public final class Common {
         }
     }
 
+    protected static final short writeAlgorithmInformation(final ECCurves ec,
+                                                           final byte key_tag, final boolean is_dec,
+                                                           final byte[] buf, short off) {
+        for(short i = 0; i < ec.curves.length; ++i) {
+            buf[off++] = key_tag;
+            buf[off++] = (byte)(1 + ec.curves[i].oid.length + 1); /* len */
+            if(is_dec) buf[off++] = (byte)0x12; /* ECDH */
+            else buf[off++] = (byte)0x13; /* ECDSA */
+            off = Util.arrayCopyNonAtomic(ec.curves[i].oid, (short)0,
+                                          buf, off,
+                                          (short)ec.curves[i].oid.length);
+            buf[off++] = (byte)0xff; /* with public key */
+        }
+
+        for(short m = 2; m <= 4; ++m) {
+            for(byte form = 1; form <= 3; form += 2) {
+                buf[off++] = key_tag;
+                buf[off++] = (byte)6; /* len */
+                buf[off++] = (byte)0x01; /* RSA */
+                off = Util.setShort(buf, off, (short)(m * 1024)); /* modulus bit size */
+                off = Util.setShort(buf, off, (short)0x11); /* 65537 = 17 bits public exponent size */
+                buf[off++] = form;
+            }
+        }
+
+        return off;
+    }
 }

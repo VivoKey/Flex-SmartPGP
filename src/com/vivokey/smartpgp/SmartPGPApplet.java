@@ -18,11 +18,10 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-package fr.anssi.smartpgp;
+package com.vivokey.smartpgp;
 
 import javacard.framework.*;
 import javacard.security.*;
-import javacardx.apdu.*;
 import javacardx.crypto.*;
 
 public final class SmartPGPApplet extends Applet {
@@ -454,10 +453,35 @@ public final class SmartPGPApplet extends Applet {
                                           k.certificate_length);
             break;
 
+        case Constants.TAG_KEY_INFORMATION:
+            buf[off++] = (byte)0xde;
+            buf[off++] = (byte)0x06; /* len */
+            buf[off++] = (byte)0x01;
+            buf[off++] = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG].keyInformation();
+            buf[off++] = (byte)0x02;
+            buf[off++] = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_DEC].keyInformation();
+            buf[off++] = (byte)0x03;
+            buf[off++] = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT].keyInformation();
+            break;
+
         case Constants.TAG_KEY_DERIVATION_FUNCTION:
             off = Util.arrayCopyNonAtomic(data.key_derivation_function, (short)0,
                                           buf, off,
                                           data.key_derivation_function_length);
+            break;
+
+        case Constants.TAG_ALGORITHM_INFORMATION:
+            off = Common.writeAlgorithmInformation(ec, (byte)0xc1, false, buf, off); /* SIG */
+            off = Common.writeAlgorithmInformation(ec, (byte)0xc2, true, buf, off); /* DEC */
+            off = Common.writeAlgorithmInformation(ec, (byte)0xc3, false, buf, off); /* AUT */
+            break;
+
+        case Constants.TAG_SECURE_MESSAGING_CERTIFICATE:
+            k = sm.static_key;
+
+            off = Util.arrayCopyNonAtomic(k.certificate, (short)0,
+                                          buf, off,
+                                          k.certificate_length);
             break;
 
         default:
@@ -739,7 +763,7 @@ public final class SmartPGPApplet extends Applet {
                 ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 return;
             }
-            if(lc < 6) {
+            if(lc < 8) {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 return;
             }
@@ -750,33 +774,39 @@ public final class SmartPGPApplet extends Applet {
             }
 
             final short len = Common.readLength(buf, (byte)1, (short)(lc - 1));
-            final short off = Common.skipLength(buf, (byte)1, (short)(lc - 1));
+            short off = Common.skipLength(buf, (byte)1, (short)(lc - 1));
 
             if((short)(off + len) != lc) {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 return;
             }
 
-            switch(Util.getShort(buf, off)) {
-            case Constants.CRT_SIGNATURE_KEY:
+            byte extended_expect = (byte)0;
+
+            switch(buf[off]) {
+            case Constants.CRT_TAG_SIGNATURE_KEY:
                 k = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG];
                 JCSystem.beginTransaction();
                 Util.arrayFillNonAtomic(data.digital_signature_counter,
                                         (short)0, (byte)data.digital_signature_counter.length,
                                         (byte)0);
                 JCSystem.commitTransaction();
+                extended_expect = (byte)0x01;
                 break;
 
-            case Constants.CRT_DECRYPTION_KEY:
+            case Constants.CRT_TAG_DECRYPTION_KEY:
                 k = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_DEC];
+                extended_expect = (byte)0x02;
                 break;
 
-            case Constants.CRT_AUTHENTICATION_KEY:
+            case Constants.CRT_TAG_AUTHENTICATION_KEY:
                 k = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT];
+                extended_expect = (byte)0x03;
                 break;
 
-            case Constants.CRT_SECURE_MESSAGING_KEY:
+            case Constants.CRT_TAG_SECURE_MESSAGING_KEY:
                 k = sm.static_key;
+                extended_expect = (byte)0x04;
                 break;
 
             default:
@@ -784,7 +814,30 @@ public final class SmartPGPApplet extends Applet {
                 return;
             }
 
-            k.importKey(ec, buf, (short)(off + 2), (short)(lc - off - 2));
+            ++off;
+
+            if(buf[off] == (byte)0) {
+                ++off;
+            } else if(buf[off] == (byte)3) {
+                ++off;
+                if(buf[off++] != (byte)0x84) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                    return;
+                }
+                if(buf[off++] != (byte)1) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                    return;
+                }
+                if(buf[off++] != extended_expect) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                    return;
+                }
+            } else {
+                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                return;
+            }
+
+            k.importKey(ec, buf, off, (short)(lc - off));
 
         } else {
             final short tag = Util.makeShort(p1, p2);
@@ -1084,6 +1137,12 @@ public final class SmartPGPApplet extends Applet {
                 JCSystem.commitTransaction();
                 break;
 
+            case Constants.TAG_SECURE_MESSAGING_CERTIFICATE:
+                assertAdmin();
+                k = sm.static_key;
+                k.setCertificate(buf, (short)0, lc);
+                break;
+
             default:
                 ISOException.throwIt(Constants.SW_REFERENCE_DATA_NOT_FOUND);
                 return;
@@ -1102,34 +1161,58 @@ public final class SmartPGPApplet extends Applet {
             return 0;
         }
 
-        if(lc != 2) {
+        if(lc < 2) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
             return 0;
         }
 
         boolean do_reset = false;
         PGPKey pkey;
+        byte extended_expect = (byte)0;
 
-        switch(Util.makeShort(buf[0], buf[1])) {
-        case Constants.CRT_SIGNATURE_KEY:
+        switch(buf[0]) {
+        case Constants.CRT_TAG_SIGNATURE_KEY:
             do_reset = true;
             pkey = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG];
+            extended_expect = (byte)0x01;
             break;
 
-        case Constants.CRT_DECRYPTION_KEY:
+        case Constants.CRT_TAG_DECRYPTION_KEY:
             pkey = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_DEC];
+            extended_expect = (byte)0x02;
             break;
 
-        case Constants.CRT_AUTHENTICATION_KEY:
+        case Constants.CRT_TAG_AUTHENTICATION_KEY:
             pkey = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT];
+            extended_expect = (byte)0x03;
             break;
 
-        case Constants.CRT_SECURE_MESSAGING_KEY:
+        case Constants.CRT_TAG_SECURE_MESSAGING_KEY:
             pkey = sm.static_key;
+            extended_expect = (byte)0x04;
             break;
 
         default:
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            return 0;
+        }
+
+        if(lc == (short)2) {
+            if(buf[1] != (byte)0) {
+                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                return 0;
+            }
+        } else if(lc == (short)5) {
+            if((buf[1] != (byte)3) || (buf[3] != (byte)1)) {
+                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                return 0;
+            }
+            if((buf[2] != (byte)0x84) || buf[4] != extended_expect) {
+                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                return 0;
+            }
+        } else {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
             return 0;
         }
 
@@ -1313,7 +1396,7 @@ public final class SmartPGPApplet extends Applet {
         data.isTerminated = true;
     }
 
-    @SuppressWarnings("fallthrough")
+
     private final void processActivateFile(final byte p1, final byte p2) {
         if(p1 != (byte)0) {
             ISOException.throwIt(ISO7816.SW_WRONG_P1P2);

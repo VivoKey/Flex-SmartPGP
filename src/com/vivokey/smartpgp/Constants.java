@@ -18,12 +18,9 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-package fr.anssi.smartpgp;
+package com.vivokey.smartpgp;
 
 import javacard.framework.*;
-import javacard.security.*;
-import javacardx.apdu.*;
-import javacardx.crypto.*;
 
 public final class Constants {
 
@@ -99,6 +96,7 @@ public final class Constants {
     protected static final short TAG_GENERATION_DATE_SIG = (short)0x00ce;
     protected static final short TAG_GENERATION_DATE_DEC = (short)0x00cf;
     protected static final short TAG_GENERATION_DATE_AUT = (short)0x00d0;
+    protected static final short TAG_KEY_INFORMATION = (short)0x00de;
     protected static final short TAG_RESETTING_CODE = (short)0x00d3;
     protected static final short TAG_EXTENDED_LENGTH_INFORMATION = (short)0x7f66;
     protected static final short TAG_PRIVATE_DO_0101 = (short)0x0101;
@@ -107,11 +105,13 @@ public final class Constants {
     protected static final short TAG_PRIVATE_DO_0104 = (short)0x0104;
     protected static final short TAG_AES_KEY = (short)0x00d5;
     protected static final short TAG_KEY_DERIVATION_FUNCTION = (short)0x00f9;
+    protected static final short TAG_ALGORITHM_INFORMATION = (short)0x00fa;
+    protected static final short TAG_SECURE_MESSAGING_CERTIFICATE = (short)0x00fb;
 
-    protected static final short CRT_AUTHENTICATION_KEY = (short)0xa400;
-    protected static final short CRT_SECURE_MESSAGING_KEY = (short)0xa600;
-    protected static final short CRT_SIGNATURE_KEY = (short)0xb600;
-    protected static final short CRT_DECRYPTION_KEY = (short)0xb800;
+    protected static final byte CRT_TAG_AUTHENTICATION_KEY = (byte)0xa4;
+    protected static final byte CRT_TAG_SECURE_MESSAGING_KEY = (byte)0xa6;
+    protected static final byte CRT_TAG_SIGNATURE_KEY = (byte)0xb6;
+    protected static final byte CRT_TAG_DECRYPTION_KEY = (byte)0xb8;
 
     protected static final byte CLA_MASK_CHAINING = (byte)0x10;
     protected static final byte CLA_MASK_SECURE_MESSAGING = (byte)0x04;
@@ -186,14 +186,6 @@ public final class Constants {
         return Util.getShort(EXTENDED_CAPABILITIES, (short)6);
     }
 
-
-    protected static final byte[] DSI_SHA224_HEADER = {
-        (byte)0x30, (byte)0x2D,
-        (byte)0x30, (byte)0x0D,
-        (byte)0x06, (byte)0x09, (byte)0x60, (byte)0x86, (byte)0x48, (byte)0x01, (byte)0x65, (byte)0x03, (byte)0x04, (byte)0x02, (byte)0x04,
-        (byte)0x05, (byte)0x00,
-        (byte)0x04, (byte)0x1C
-    };
 
     protected static final byte[] DSI_SHA256_HEADER = {
         (byte)0x30, (byte)0x31,

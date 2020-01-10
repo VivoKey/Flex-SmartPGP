@@ -18,12 +18,10 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-package fr.anssi.smartpgp;
+package com.vivokey.smartpgp;
 
 import javacard.framework.*;
 import javacard.security.*;
-import javacardx.apdu.*;
-import javacardx.crypto.*;
 
 public final class Persistent {
 
@@ -85,7 +83,7 @@ public final class Persistent {
     protected final OwnerPIN user_puk; /* resetting code */
     protected byte user_puk_length;
 
-    protected final OwnerPIN admin_pin; /* PW3 */
+    protected final TarPIN admin_pin; /* PW3 */
     protected byte admin_pin_length;
 
 
@@ -134,7 +132,7 @@ public final class Persistent {
 
         user_pin = new OwnerPIN(Constants.USER_PIN_RETRY_COUNT, Constants.USER_PIN_MAX_SIZE);
         user_puk = new OwnerPIN(Constants.USER_PUK_RETRY_COUNT, Constants.USER_PUK_MAX_SIZE);
-        admin_pin = new OwnerPIN(Constants.ADMIN_PIN_RETRY_COUNT, Constants.ADMIN_PIN_MAX_SIZE);
+        admin_pin = new TarPIN(Constants.ADMIN_PIN_RETRY_COUNT, Constants.ADMIN_PIN_MAX_SIZE);
 
         reset(true);
     }

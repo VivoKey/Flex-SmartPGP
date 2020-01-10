@@ -18,11 +18,10 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-package fr.anssi.smartpgp;
+package com.vivokey.smartpgp;
 
 import javacard.framework.*;
 import javacard.security.*;
-import javacardx.apdu.*;
 import javacardx.crypto.*;
 
 public final class PGPKey {
@@ -38,6 +37,8 @@ public final class PGPKey {
     protected byte attributes_length;
 
     protected final boolean is_secure_messaging_key;
+
+    private boolean has_been_generated;
 
     private KeyPair keys;
 
@@ -83,6 +84,8 @@ public final class PGPKey {
 
             Util.arrayFillNonAtomic(generation_date, (short)0, Constants.GENERATION_DATE_SIZE, (byte)0);
         }
+
+        has_been_generated = false;
     }
 
     protected final void reset(final boolean isRegistering) {
@@ -110,6 +113,18 @@ public final class PGPKey {
 
     protected final boolean isInitialized() {
         return (keys != null) && keys.getPrivate().isInitialized() && keys.getPublic().isInitialized();
+    }
+
+    protected final byte keyInformation() {
+        byte res = (byte)0x0;
+        if(isInitialized()) {
+            if(has_been_generated) {
+                res = (byte)0x01;
+            } else {
+                res = (byte)0x02;
+            }
+        }
+        return res;
     }
 
     protected final void setCertificate(final byte[] buf, final short off, final short len) {
@@ -271,7 +286,7 @@ public final class PGPKey {
         }
 
         resetKeys(false);
-
+        has_been_generated = true;
         keys = nkeys;
     }
 
@@ -603,9 +618,7 @@ public final class PGPKey {
         if(isRsa()) {
 
             if(!forAuth) {
-                if(lc == (short)(2 + Constants.DSI_SHA224_HEADER[1])) {
-                    sha_header = Constants.DSI_SHA224_HEADER;
-                } else if(lc == (short)(2 + Constants.DSI_SHA256_HEADER[1])) {
+                if(lc == (short)(2 + Constants.DSI_SHA256_HEADER[1])) {
                     sha_header = Constants.DSI_SHA256_HEADER;
                 } else if(lc == (short)(2 + Constants.DSI_SHA384_HEADER[1])) {
                     sha_header = Constants.DSI_SHA384_HEADER;

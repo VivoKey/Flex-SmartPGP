@@ -18,11 +18,10 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-package fr.anssi.smartpgp;
+package com.vivokey.smartpgp;
 
 import javacard.framework.*;
 import javacard.security.*;
-import javacardx.apdu.*;
 import javacardx.crypto.*;
 
 public final class CmacSignature {
